@@ -228,6 +228,12 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
   .abtn.blue { border: 0; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
   .abtn.red { color: var(--bad); }
   .abtn.sm { height: 38px; font-size: 13.5px; padding: 0 12px; }
+  .cc.photo { padding: 0; background-size: cover !important; background-position: center !important; }
+  .cc.photo::before, .cc.photo::after { display: none; }
+  .cc .lockph { position: absolute; right: 10px; bottom: 10px; z-index: 2; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 99px; background: rgba(0,0,0,.45); }
+  .phopt { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); font-size: 13.5px; cursor: pointer; }
+  .phopt input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); flex: 0 0 auto; }
+  .phopt small { display: block; color: var(--muted); font-size: 12px; }
   .addtile { aspect-ratio: 1.586; border-radius: 18px; border: 2px dashed var(--ring); display: grid; place-items: center; color: var(--accent);
              font-weight: 700; cursor: pointer; background: var(--card); text-align: center; }
   .addtile i { font-size: 26px; display: block; margin-bottom: 6px; }
@@ -238,6 +244,8 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
   .rv .rr span { font-size: 12px; color: var(--muted); width: 92px; flex: 0 0 auto; }
   .rv .rr b { flex: 1; font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: .04em; word-break: break-all; }
   .cp { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--card-solid); color: var(--accent); cursor: pointer; font-size: 15px; }
+  .eyebtn { width: 42px; height: 38px; border-radius: 10px; border: 1px solid var(--ring); background: var(--card-solid); color: var(--accent); cursor: pointer; font-size: 17px; }
+  .rv .rr b.mask { letter-spacing: .12em; color: var(--muted); }
   .rv .tm { font-size: 12px; color: var(--muted); padding: 8px 12px; background: var(--bg); display: flex; justify-content: space-between; align-items: center; }
   /* Hộp thoại */
   .modal { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,.5); }
@@ -385,7 +393,13 @@ function analyze(c) {
 // ---------- render
 const SWATCHES = ['#1e3a8a,#3b82f6', '#0f766e,#14b8a6', '#7c2d12,#f97316', '#831843,#ec4899', '#3f3f46,#a1a1aa', '#111827,#4b5563',
   '#713f12,#eab308', '#4c1d95,#a78bfa', '#065f46,#34d399', '#991b1b,#f87171'];
+let PHOTOS = {};                                   // ảnh thật đã giải mã (chỉ trong bộ nhớ), khóa = đuôi chuỗi mã hóa
+const photoKey = c => (c.photo || '').slice(-32);
 function ccHtml(c) {
+  const plain = /^data:image\//.test(c.photo || '');
+  const ph = c._photo !== undefined ? c._photo : (c.showPhoto === 'Có' && c.photo ? (plain ? c.photo : PHOTOS[photoKey(c)]) : null);
+  if (ph) return `<div class="cc photo" style="background:url(${ph}) center/cover">${active(c) ? '' : `<div class="st">${esc(c.status)}</div>`}</div>`;
+  const lockedPhoto = c._photo === undefined && c.showPhoto === 'Có' && c.photo && !plain;
   const [c1, c2] = c.color ? c.color.split(',').concat(c.color.split(',')[0]).slice(0, 2) : colorsOf(c);
   const face = /^data:image\//.test(c.face || '') ? `background:linear-gradient(135deg,rgba(0,0,0,.42),rgba(0,0,0,.12)),url(${c.face}) center/cover;` : '';
   const holder = c.user || c.owner;
@@ -397,6 +411,7 @@ function ccHtml(c) {
     <div class="no">•••• •••• •••• ${esc(c.last4 || '••••')}</div>
     <div class="bot"><div style="min-width:0"><small>${c.user && c.user !== c.owner ? 'Người dùng' : 'Chủ thẻ'}</small><b>${esc(holder || '—')}</b></div>
       <div style="text-align:right"><small>Hết hạn</small><b>${esc(c.exp || '—')}</b></div></div>
+    ${lockedPhoto ? '<div class="lockph"><i class="fa-solid fa-lock"></i> ảnh thật</div>' : ''}
   </div>`;
 }
 
@@ -465,11 +480,14 @@ function render() {
   html += `<div class="sec"><i class="fa-solid fa-wallet"></i>Danh sách thẻ<span class="n">${list.length} thẻ</span></div>
     <div class="filters">${tabs.map(t => `<button class="chip ${t === FILTER ? 'on' : ''}" data-f="${esc(t)}">${esc(t)} · ${counts[t]}</button>`).join('')}
       <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="q" type="search" placeholder="Tìm ngân hàng, 4 số cuối, người dùng…" value="${esc(Q)}"></div></div>`;
+  const lockedPh = list.filter(c => c.showPhoto === 'Có' && /^v1\./.test(c.photo || '') && !PHOTOS[photoKey(c)]).length;
+  if (lockedPh) html += `<div class="panel" style="margin-top:12px"><div class="item" id="unlockPh"><div class="ic info"><i class="fa-solid fa-image"></i></div><div class="t"><b>${lockedPh} thẻ dùng ảnh thật đang ẩn</b><span>Ảnh thật được mã hóa · bấm để mở bằng mật khẩu chủ</span></div><span class="when ok">Mở khóa</span></div></div>`;
   html += `<div class="grid">${list.map(cardBlock).join('')}<div class="addtile" id="addTile"><div><i class="fa-solid fa-circle-plus"></i>Thêm thẻ<br><small style="font-weight:500;color:var(--muted)">nhập tay hoặc quét bằng camera</small></div></div></div>`;
   $('main').innerHTML = html;
 
   $('main').querySelectorAll('[data-row]').forEach(el => el.onclick = () => openDetail(+el.dataset.row));
   $('addTile').onclick = () => openForm(null);
+  if ($('unlockPh')) $('unlockPh').onclick = () => decryptPhotos(true);
   $('main').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTER = b.dataset.f; render(); });
   const qi = $('q'); qi.oninput = () => { Q = qi.value; const pos = qi.selectionStart; render(); const n = $('q'); n.focus(); n.setSelectionRange(pos, pos); };
 }
@@ -487,9 +505,8 @@ function openDetail(row) {
   $('sheet').innerHTML = `<div class="grab"></div>${ccHtml(c)}
     ${a.alerts.length ? `<div class="flags" style="padding:0 0 12px">${a.alerts.map(x => `<span class="flag ${x.lv === 'info' ? 'warn' : x.lv}"><i class="fa-solid ${x.ic}"></i>${esc(x.t)}</span>`).join('')}</div>` : ''}
     <div class="sacts" style="margin:0 0 12px">
-      ${c.secure ? `<button class="abtn blue" id="dReveal"><i class="fa-solid fa-eye"></i>Hiện số thẻ</button>`
-        : `<button class="abtn" id="dAddSec"><i class="fa-solid fa-lock"></i>Thêm số thẻ</button>`}
-      <button class="abtn" id="dEdit"><i class="fa-solid fa-pen"></i>Sửa thẻ</button>
+      ${c.secure ? '' : `<button class="abtn" id="dAddSec"><i class="fa-solid fa-lock"></i>Thêm số thẻ</button>`}
+      <button class="abtn" id="dEdit" ${c.secure ? 'style="grid-column:1/-1"' : ''}><i class="fa-solid fa-pen"></i>Sửa thẻ</button>
       ${!c.face ? `<button class="abtn blue" id="dScan" style="grid-column:1/-1"><i class="fa-solid fa-camera"></i>Quét thẻ để thêm ảnh${c.secure ? '' : ' & số thẻ'}</button>` : ''}
     </div>
     <div id="reveal"></div>
@@ -515,7 +532,7 @@ function openDetail(row) {
       <a class="abtn pri ${tel ? '' : 'dis'}" href="tel:${esc(tel)}"><i class="fa-solid fa-phone"></i>${tel ? 'Gọi ' + esc(c.hotline) : 'Chưa có hotline'}</a>
       <a class="abtn" href="${esc(D.sheetUrl)}" target="_blank"><i class="fa-solid fa-table"></i>Mở sheet</a>
     </div>`;
-  if ($('dReveal')) $('dReveal').onclick = () => reveal(c);
+  if (c.secure) drawMasked(c);
   if ($('dAddSec')) $('dAddSec').onclick = () => openForm(c, true);
   $('dEdit').onclick = () => openForm(c);
   if ($('dScan')) $('dScan').onclick = () => { openForm(c); $('camIn').click(); };   // quét bổ sung cho thẻ có sẵn
@@ -526,11 +543,23 @@ function closeDetail() { $('sheet').classList.remove('open'); $('sheetBg').class
 $('sheetBg').onclick = () => { if (FORM && FORM.dirty && !confirm('Bỏ các thay đổi chưa lưu?')) return; closeDetail(); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('modal').hidden) closeDetail(); });
 
+async function decryptPhotos(interactive) {
+  const need = D.cards.filter(c => c.showPhoto === 'Có' && /^v1\./.test(c.photo || '') && !PHOTOS[photoKey(c)]);
+  if (!need.length) return;
+  let k = VKEY || await deviceKey().catch(() => null);
+  if (!k && interactive) k = await unlockVault();
+  if (!k) return;
+  VKEY = k;
+  for (const c of need) { try { PHOTOS[photoKey(c)] = (await unseal(k, c.photo)).img; } catch (e) {} }
+  render();
+}
+
 // ---------- Hộp thoại nhập (mật khẩu chủ, xác nhận)
 function ask({ title, msg, fields = [], ok = 'OK', danger, validate }) {
   return new Promise(resolve => {
     $('modal').innerHTML = `<form class="mbox" id="mform"><h3>${esc(title)}</h3>${msg ? `<p>${msg}</p>` : ''}
-      ${fields.map(f => f.type === 'checkbox' ? `<label class="rem" style="margin:12px 0 0"><input id="m_${f.id}" type="checkbox" ${f.checked ? 'checked' : ''}> ${esc(f.ph)}</label>`
+      ${fields.map(f => f.id === 'p' && /PIN/.test(f.ph) ? `<div class="fld"><input id="m_p" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="${esc(f.ph)}" style="text-align:center;letter-spacing:.3em;font-size:20px"></div>`
+        : f.type === 'checkbox' ? `<label class="rem" style="margin:12px 0 0"><input id="m_${f.id}" type="checkbox" ${f.checked ? 'checked' : ''}> ${esc(f.ph)}</label>`
         : `<div class="fld"><input id="m_${f.id}" type="${f.type || 'text'}" placeholder="${esc(f.ph || '')}" autocomplete="${f.type === 'password' ? 'new-password' : 'off'}"></div>`).join('')}
       <div class="merr" id="merr"></div>
       <div class="macts"><button type="button" class="abtn" id="mcancel">Hủy</button><button class="abtn ${danger ? 'red' : 'blue'}">${esc(ok)}</button></div></form>`;
@@ -769,7 +798,50 @@ $('vaultBtn').onclick = async () => {
 // ---------- Hiện số thẻ + copy (tự ẩn sau 60 giây)
 let RV_T = 0;
 const groupPan = p => String(p || '').replace(/(\d{4})(?=\d)/g, '$1 ');
+function drawMasked(c) {
+  if (!$('reveal')) return;
+  $('reveal').innerHTML = `<div class="rv">
+    <div class="rr"><span>Số thẻ</span><b class="mask">•••• •••• •••• ${esc(c.last4 || '••••')}</b><button class="eyebtn" id="dEye" title="Xem (cần xác nhận)"><i class="fa-regular fa-eye"></i></button></div>
+    <div class="rr"><span>Tên trên thẻ</span><b class="mask">••••••••</b></div>
+    <div class="rr"><span>Hết hạn</span><b>${esc(c.exp || '—')}</b></div>
+    <div class="rr"><span>CVV</span><b class="mask">•••</b></div>
+    <div class="tm"><span><i class="fa-solid fa-shield-halved"></i> Bấm 👁 và xác nhận ${PK_OK && store('pkDev') ? 'bằng passkey' : 'bằng PIN'} để xem</span></div></div>`;
+  $('dEye').onclick = () => reveal(c);
+}
+
+// Xác nhận người dùng trước khi xem thông tin nhạy cảm: passkey (nếu máy đã bật) hoặc PIN. Nhớ trong 2 phút.
+let CONFIRMED_AT = 0;
+async function confirmUser() {
+  if (Date.now() - CONFIRMED_AT < 120000) return true;
+  if (PK_OK && store('pkDev') && PK_N > 0) {
+    try {
+      const b = await call('pkLoginBegin');
+      const a = await navigator.credentials.get({ publicKey: { challenge: unb64u(b.challenge), rpId: b.rpId, timeout: 60000, userVerification: 'required',
+        allowCredentials: b.allow.map(id => ({ type: 'public-key', id: unb64u(id) })) } });
+      const r = await call('pkLoginFinish', { id: a.id, clientDataJSON: b64u(a.response.clientDataJSON), authenticatorData: b64u(a.response.authenticatorData), signature: b64u(a.response.signature) });
+      TOKEN = r.token; saveSess();
+      CONFIRMED_AT = Date.now(); return true;
+    } catch (e) {
+      if (codeOf(e) === 'LOCKED') { toast(ERR.LOCKED); return false; }
+      if (e.name !== 'NotAllowedError') toast('Passkey lỗi, dùng PIN: ' + (e.message || e));
+    }
+  }
+  for (;;) {
+    const r = await ask({ title: 'Xác nhận để xem', msg: 'Nhập mã PIN để xem thông tin nhạy cảm của thẻ.', ok: 'Xác nhận',
+      fields: [{ id: 'p', type: 'password', ph: 'Mã PIN' }] });
+    if (!r) return false;
+    try { await call('confirmPin', TOKEN, r.p.replace(/\D/g, '')); CONFIRMED_AT = Date.now(); return true; }
+    catch (e) {
+      const code = codeOf(e);
+      if (code === 'EXPIRED') { lockNow(ERR.EXPIRED); return false; }
+      if (code === 'LOCKED') { toast(ERR.LOCKED); return false; }
+      toast(code === 'BAD_PIN' ? 'Sai mã PIN' : String(e.message || e));
+    }
+  }
+}
+
 async function reveal(c) {
+  if (!await confirmUser()) return;
   const k = await unlockVault(); if (!k) return;
   let s; try { s = await unseal(k, c.secure); } catch (e) { toast('Không giải mã được dữ liệu của thẻ này'); return; }
   const rows = [['Số thẻ', groupPan(s.pan), s.pan], ['Tên trên thẻ', s.name, s.name], ['Hết hạn', c.exp, c.exp], ['CVV', s.cvv, s.cvv]].filter(r => r[2]);
@@ -777,11 +849,11 @@ async function reveal(c) {
   const draw = () => {
     if (!$('reveal')) return;
     $('reveal').innerHTML = `<div class="rv">${rows.map((r, i) => `<div class="rr"><span>${r[0]}</span><b>${esc(r[1])}</b><button class="cp" data-i="${i}" title="Copy"><i class="fa-regular fa-copy"></i></button></div>`).join('')}
-      <div class="tm"><span><i class="fa-regular fa-clock"></i> Tự ẩn sau ${left}s</span><button class="sbtn" id="rvHide">Ẩn ngay</button></div></div>`;
+      <div class="tm"><span><i class="fa-regular fa-clock"></i> Tự ẩn sau ${left}s</span><button class="sbtn" id="rvHide"><i class="fa-regular fa-eye-slash"></i> Ẩn</button></div></div>`;
     $('reveal').querySelectorAll('.cp').forEach(b => b.onclick = () => copy(rows[+b.dataset.i][2], b, rows[+b.dataset.i][0]));
     $('rvHide').onclick = hide;
   };
-  const hide = () => { clearTimeout(RV_T); if ($('reveal')) $('reveal').innerHTML = ''; };
+  const hide = () => { clearTimeout(RV_T); drawMasked(c); };
   const tick = () => { left--; if (left <= 0) return hide(); const t = $('reveal') && $('reveal').querySelector('.tm span'); if (t) t.innerHTML = `<i class="fa-regular fa-clock"></i> Tự ẩn sau ${left}s`; RV_T = setTimeout(tick, 1000); };
   clearTimeout(RV_T); draw(); RV_T = setTimeout(tick, 1000);
 }
@@ -808,7 +880,8 @@ const F_NUM = ['limit', 'stmt', 'due', 'fee', 'feeMonth'];
 
 function openForm(c, focusSecure) {
   const v = c ? { ...c } : { status: 'Đang dùng' };
-  FORM = { c, v, face: c ? c.face : '', color: c ? c.color : '', sec: null, secTouched: false, secClear: false, dirty: false };
+  FORM = { c, v, face: c ? c.face : '', color: c ? c.color : '', photoRaw: c && c.photo ? (/^data:image\//.test(c.photo) ? c.photo : PHOTOS[photoKey(c)] || null) : null, usePhoto: !!(c && c.showPhoto === 'Có'), photoNew: false,
+    photoPlain: !!(c && /^data:image\//.test(c.photo || '')), photoModeChanged: false, sec: null, secTouched: false, secClear: false, dirty: false };
   const fld = (id, label, attrs = '', cls = '') => `<div class="fld ${cls}"><label for="f_${id}">${label}</label><input id="f_${id}" ${attrs} value="${esc(v[id] ?? '')}"><div class="hint" id="h_${id}"></div></div>`;
   const sel = (id, label, opts, cls = '') => `<div class="fld ${cls}"><label for="f_${id}">${label}</label><select id="f_${id}">${opts.map(o => `<option ${o === (v[id] || '') ? 'selected' : ''} value="${esc(o)}">${esc(o || '—')}</option>`).join('')}</select></div>`;
   const codes = [...new Set([...(D.codes || []), ...Object.keys(D.pending).filter(k => k !== '_error')])].filter(k => !D.cards.some(x => x.code && x.code.toUpperCase() === k.toUpperCase() && x !== c));
@@ -820,6 +893,7 @@ function openForm(c, focusSecure) {
       <button class="abtn" id="fPick"><i class="fa-regular fa-image"></i>Chọn ảnh</button>
     </div>
     <div class="scanmsg" id="scanMsg">Chụp mặt trước thẻ, để thẻ chiếm gần hết khung hình. Ảnh xử lý ngay trên máy.</div>
+    <div id="photoOpt"></div>
     <div class="swatches" id="swatches"></div>
 
     <div class="fsec"><i class="fa-solid fa-lock"></i>Thông tin bảo mật (được mã hóa)</div>
@@ -862,7 +936,7 @@ function openForm(c, focusSecure) {
       <button class="abtn blue" id="fSave"><i class="fa-solid fa-check"></i>Lưu</button>
     </div>`;
   ['limit', 'fee'].forEach(k => { if (v[k]) $('f_' + k).value = fmt(v[k]); });
-  drawSec(); drawSwatches(); preview();
+  drawSec(); drawSwatches(); drawPhotoOpt(); preview();
 
   $('sheet').querySelectorAll('.fld input, .fld select').forEach(el => el.addEventListener('input', () => { FORM.dirty = true; onField(el.id.slice(2)); }));
   $('fScan').onclick = () => $('camIn').click();
@@ -880,6 +954,7 @@ function drawSec() {
     $('secBox').innerHTML = `<div class="lockline"><i class="fa-solid fa-shield-halved" style="color:var(--ok)"></i><b>Đã lưu số thẻ •••• ${esc(c.last4 || '')}</b>
       <button class="sbtn" id="sUnlock"><i class="fa-solid fa-unlock"></i> Mở để sửa</button><button class="sbtn" id="sClear" title="Xóa dữ liệu bảo mật"><i class="fa-solid fa-trash"></i></button></div>`;
     $('sUnlock').onclick = async () => {
+      if (!await confirmUser()) return;
       const k = await unlockVault(); if (!k) return;
       try { FORM.sec = await unseal(k, c.secure); drawSec(); } catch (e) { toast('Không giải mã được'); }
     };
@@ -950,9 +1025,33 @@ function collect() {
   F_NUM.forEach(k => { const d = $('f_' + k).value.replace(/\D/g, ''); v[k] = d ? +d : null; });
   return v;
 }
+function drawPhotoOpt() {
+  const c = FORM.c, has = FORM.photoRaw || (c && c.photo);
+  if (!has) { $('photoOpt').innerHTML = ''; return; }
+  $('photoOpt').innerHTML = `<label class="phopt"><input type="checkbox" id="fUsePhoto" ${FORM.usePhoto ? 'checked' : ''}>
+    <span><b>Dùng ảnh chụp làm ảnh thẻ</b><small>Hiện đúng ảnh thật, không vẽ thông tin lên thẻ.</small></span></label>
+    ${FORM.usePhoto ? `<div style="display:grid;gap:6px;margin:6px 0 0 28px">
+      <label class="phopt" style="margin:0"><input type="radio" name="phmode" value="enc" ${FORM.photoPlain ? '' : 'checked'}>
+        <span><b><i class="fa-solid fa-lock"></i> Mã hóa ảnh</b><small>Thẻ có in số thẻ / tên / CVV. Ảnh chỉ hiện khi đã mở khóa (máy đã ghi nhớ thì tự hiện).</small></span></label>
+      <label class="phopt" style="margin:0"><input type="radio" name="phmode" value="plain" ${FORM.photoPlain ? 'checked' : ''}>
+        <span><b><i class="fa-regular fa-image"></i> Không mã hóa</b><small>Mặt thẻ không in thông tin nhạy cảm (vd VIB One Card). Ảnh hiện ngay trên mọi máy.</small></span></label>
+    </div>` : ''}`;
+  $('fUsePhoto').onchange = e => { FORM.usePhoto = e.target.checked; FORM.dirty = true; drawPhotoOpt(); preview(); };
+  $('photoOpt').querySelectorAll('[name=phmode]').forEach(r => r.onchange = () => {
+    const plain = r.value === 'plain';
+    if (plain) {
+      const f = FORM.ocrFound;
+      const msg = f && f.length ? '⚠ Bộ đọc chữ THẤY trên ảnh: ' + f.join(', ') + '.\nẢnh này có thông tin nhạy cảm, NÊN chọn "Mã hóa ảnh".\n\nVẫn lưu KHÔNG mã hóa?'
+        : (f ? 'Bộ đọc chữ không thấy số thẻ / tên / hạn dùng trên ảnh (có thể bỏ sót số dập nổi).\n' : 'Ảnh chưa được đọc chữ để kiểm tra.\n') +
+          'Hãy tự nhìn lại ảnh: chỉ chọn khi mặt thẻ KHÔNG có số thẻ, tên, CVV.\n\nLưu ảnh KHÔNG mã hóa?';
+      if (!confirm(msg)) { drawPhotoOpt(); return; }
+    }
+    FORM.photoPlain = plain; FORM.photoModeChanged = true; FORM.dirty = true;
+  });
+}
 function preview() {
   if (!FORM) return;
-  $('fPreview').innerHTML = ccHtml({ ...FORM.v, ...collect(), face: FORM.face, color: FORM.color });
+  $('fPreview').innerHTML = ccHtml({ ...FORM.v, ...collect(), face: FORM.face, color: FORM.color, _photo: FORM.usePhoto && FORM.photoRaw ? FORM.photoRaw : null });
 }
 function drawSwatches() {
   $('swatches').innerHTML = `<span style="font-size:12px;color:var(--muted);margin-right:2px">Màu:</span>` +
@@ -983,7 +1082,19 @@ async function saveForm() {
   } else if (FORM.secClear) secure = '';
 
   const c = FORM.c;
-  const payload = { ...v, face: FORM.face || '', color: FORM.color || '', row: c ? c.row : 0, expect: c ? { bank: c.bank, last4: c.last4 } : null };
+  let photo;                                            // undefined = giữ nguyên
+  if (FORM.usePhoto && (FORM.photoNew || FORM.photoModeChanged)) {
+    if (!FORM.photoRaw) { toast('Mở khóa ảnh thật (hoặc chụp lại) trước khi đổi chế độ mã hóa'); return; }
+    if (FORM.photoPlain) photo = FORM.photoRaw;
+    else {
+      const k = await unlockVault(); if (!k) return;
+      photo = await seal(k, { img: FORM.photoRaw });
+      PHOTOS[photo.slice(-32)] = FORM.photoRaw;
+    }
+  }
+  const payload = { ...v, face: FORM.face || '', color: FORM.color || '', row: c ? c.row : 0, expect: c ? { bank: c.bank, last4: c.last4 } : null,
+    showPhoto: FORM.usePhoto && (photo || (c && c.photo)) ? 'Có' : 'Không' };
+  if (photo !== undefined) payload.photo = photo;
   if (secure !== undefined) payload.secure = secure;
   $('fSave').disabled = true; $('fSave').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>Đang lưu…';
   try {
@@ -1026,6 +1137,12 @@ function cropCard(img, W) {
   return cv;
 }
 /** Ảnh mặt thẻ: thu nhỏ 40px rồi phóng lên -> mờ hẳn, không đọc được số/tên nhưng giữ màu & hoa văn */
+/** Ảnh thật cho mặt thẻ: 420px, JPEG, giảm chất lượng cho tới khi đủ nhỏ (sau mã hóa < 49.000 ký tự) */
+function makePhoto(img) {
+  const cv = cropCard(img, 420);
+  for (const q of [0.72, 0.62, 0.52, 0.42]) { const u = cv.toDataURL('image/jpeg', q); if (u.length < 34000) return u; }
+  return cropCard(img, 320).toDataURL('image/jpeg', 0.5);
+}
 function makeFace(img) {
   const tiny = cropCard(img, 40), out = document.createElement('canvas');
   out.width = 240; out.height = 151;
@@ -1080,13 +1197,14 @@ async function scanImage(file) {
   try {
     msg('<i class="fa-solid fa-circle-notch fa-spin"></i> Đang xử lý ảnh…');
     const img = await fileToImage(file);
-    FORM.face = makeFace(img); FORM.color = ''; FORM.dirty = true; drawSwatches(); preview();
+    FORM.face = makeFace(img); FORM.photoRaw = makePhoto(img); FORM.photoNew = true; FORM.ocrFound = null; FORM.color = ''; FORM.dirty = true; drawSwatches(); drawPhotoOpt(); preview();
     msg('<i class="fa-solid fa-circle-notch fa-spin"></i> Đang tải bộ đọc chữ (lần đầu hơi lâu)…');
     await loadOcr();
     const worker = await Tesseract.createWorker('eng', 1, { logger: m => { if (m.status === 'recognizing text') msg(`<i class="fa-solid fa-circle-notch fa-spin"></i> Đang đọc thẻ… ${Math.round(m.progress * 100)}%`); } });
     let text = (await worker.recognize(prepOcr(img, false))).data.text, r = parseCard(text);
     if (!r.pan || !r.exp) { msg('<i class="fa-solid fa-circle-notch fa-spin"></i> Đọc lại lần 2…'); text += '\n' + (await worker.recognize(prepOcr(img, true))).data.text; r = { ...parseCard(text), ...Object.fromEntries(Object.entries(r).filter(([, v]) => v)) }; }
     await worker.terminate();
+    FORM.ocrFound = [r.pan && 'số thẻ ' + groupPan(r.pan), r.name && 'tên ' + r.name, r.exp && 'hạn dùng ' + r.exp].filter(Boolean);
     if (r.pan || r.name) {
       if (!$('s_pan')) { FORM.sec = FORM.sec || { pan: '', name: '', cvv: '' }; drawSec(); }
       if (r.pan) { $('s_pan').value = groupPan(r.pan); FORM.secTouched = true; onSec('pan'); }
@@ -1131,7 +1249,7 @@ function showGate(msg, shake) {
 }
 function lockNow(msg) {
   if (TOKEN) google.script.run.lockToken(TOKEN);
-  TOKEN = ''; saveSess(); VKEY = null; clearTimeout(RV_T); D = null; $('modal').hidden = true; $('main').innerHTML = ''; closeDetail();
+  TOKEN = ''; saveSess(); VKEY = null; PHOTOS = {}; CONFIRMED_AT = 0; clearTimeout(RV_T); D = null; $('modal').hidden = true; $('main').innerHTML = ''; closeDetail();
   showGate(msg);
 }
 const codeOf = e => (String(e && e.message || e).match(/BAD_PIN|LOCKED|NO_PIN|EXPIRED/) || [''])[0];
@@ -1139,7 +1257,7 @@ const codeOf = e => (String(e && e.message || e).match(/BAD_PIN|LOCKED|NO_PIN|EX
 function load(onDone) {
   if (!TOKEN) { showGate(); return; }
   google.script.run
-    .withSuccessHandler(res => { D = res; TODAY = parseISO(res.today); $('gate').hidden = true; $('app').hidden = false; render(); onDone && onDone(true); })
+    .withSuccessHandler(res => { D = res; TODAY = parseISO(res.today); $('gate').hidden = true; $('app').hidden = false; render(); decryptPhotos(false); onDone && onDone(true); })
     .withFailureHandler(e => {
       onDone && onDone(false);
       const code = codeOf(e);
