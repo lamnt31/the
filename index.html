@@ -5,10 +5,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#4f46e5">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Thẻ của tôi">
 <meta name="referrer" content="no-referrer">
 <title>Thẻ của tôi</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💳</text></svg>">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
 <script>
 // ---- Bản ngoài Google: thay google.script.run bằng fetch tới API (Apps Script doPost)
 window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnchzqu_pM66Akv2oEpBFF5lr6fM5bqwilfvKfuAOiIkL1JiXw/exec";
@@ -1304,6 +1309,31 @@ document.addEventListener('visibilitychange', () => {
 
 if (TOKEN) { $('app').hidden = false; $('main').innerHTML = '<div class="grid" style="margin-top:24px">' + '<div class="skel"></div>'.repeat(3) + '</div>'; }
 load();
+</script>
+<style>
+  .instbtn { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 45;
+             display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 99px; border: 0; cursor: pointer;
+             font: inherit; font-weight: 700; color: #fff; background: linear-gradient(135deg, #4f46e5, #7c3aed); box-shadow: 0 10px 24px -8px #4f46e5; }
+  .instbtn .x { margin-left: 4px; opacity: .8; font-weight: 400; padding: 0 2px; }
+</style>
+<button class="instbtn" id="instBtn" hidden><i class="fa-solid fa-download"></i><span>Cài ứng dụng</span><span class="x" id="instX">✕</span></button>
+<script>
+(function () {
+  if ('serviceWorker' in navigator) addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  var standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  var dismissed = false; try { dismissed = localStorage.getItem('instDismiss') === '1'; } catch (e) {}
+  if (standalone || dismissed) return;
+  var btn = document.getElementById('instBtn'), deferred = null;
+  var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; btn.hidden = false; });
+  if (ios) btn.hidden = false;
+  btn.onclick = function (e) {
+    if (e.target.id === 'instX') { btn.hidden = true; try { localStorage.setItem('instDismiss', '1'); } catch (x) {} return; }
+    if (deferred) { deferred.prompt(); deferred.userChoice.then(function (c) { if (c.outcome === 'accepted') btn.hidden = true; deferred = null; }); return; }
+    alert('Cài "Thẻ của tôi" lên iPhone/iPad:\n\n1. Bấm nút Chia sẻ (ô vuông có mũi tên lên) ở thanh dưới Safari\n2. Chọn "Thêm vào MH chính"\n3. Bấm "Thêm"');
+  };
+  addEventListener('appinstalled', function () { btn.hidden = true; });
+})();
 </script>
 </body>
 </html>
