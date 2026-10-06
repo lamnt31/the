@@ -1314,13 +1314,15 @@ load();
   .instbtn { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 45;
              display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 99px; border: 0; cursor: pointer;
              font: inherit; font-weight: 700; color: #fff; background: linear-gradient(135deg, #4f46e5, #7c3aed); box-shadow: 0 10px 24px -8px #4f46e5; }
-  .instbtn .x { margin-left: 4px; opacity: .8; font-weight: 400; padding: 0 2px; }
+  .instbtn[hidden] { display: none; }            /* class đặt display:flex sẽ đè thuộc tính hidden nếu thiếu dòng này */
+  .instbtn .x { margin-left: 6px; opacity: .85; font-weight: 400; padding: 2px 6px; border-radius: 99px; background: rgba(255,255,255,.18); }
 </style>
 <button class="instbtn" id="instBtn" hidden><i class="fa-solid fa-download"></i><span>Cài ứng dụng</span><span class="x" id="instX">✕</span></button>
 <script>
 (function () {
   if ('serviceWorker' in navigator) addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
-  var standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  var standalone = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches ||
+    matchMedia('(display-mode: minimal-ui)').matches || navigator.standalone === true;
   var dismissed = false; try { dismissed = localStorage.getItem('instDismiss') === '1'; } catch (e) {}
   if (standalone || dismissed) return;
   var btn = document.getElementById('instBtn'), deferred = null;
