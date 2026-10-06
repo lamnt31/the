@@ -161,6 +161,24 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
   .sheet, .modal { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .sheet-bg, .modal, .busy { touch-action: none; }
   body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }   /* khóa cuộn trang khi mở popup (iOS cần position:fixed) */
+
+  /* Thanh cuộn mảnh */
+  * { scrollbar-width: thin; scrollbar-color: rgba(127,127,127,.35) transparent; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(127,127,127,.35); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(127,127,127,.6); }
+
+  /* Máy tính: popup là khung dọc bên phải, cao hết màn hình */
+  @media (min-width: 900px) {
+    .sheet { left: auto; right: 0; top: 0; bottom: 0; margin: 0; width: 460px; max-width: 92vw; max-height: none; height: 100vh; height: 100dvh;
+             border-radius: 22px 0 0 22px; padding: 22px 22px 22px; transform: translateX(105%); transition: transform .25s ease;
+             box-shadow: -18px 0 40px -20px rgba(0,0,0,.35); }
+    .sheet.open { transform: none; }
+    .sheet .grab { display: none; }
+    .sheet .fbar { bottom: -22px; margin: 18px -22px -22px; padding: 14px 22px; border-radius: 0 0 0 22px; }
+    .sheet-bg { background: rgba(0,0,0,.25); }
+  }
   .grab { width: 40px; height: 5px; border-radius: 99px; background: var(--line); margin: 0 auto 14px; }
   .sheet .cc { margin-bottom: 14px; }
   .rows { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
