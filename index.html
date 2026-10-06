@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
+<script>/* áp giao diện đã chọn ngay khi tải để không nháy màu; mặc định: sáng */
+try { document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('theme')) === 'dark' ? 'dark' : 'light'; } catch (e) { document.documentElement.dataset.theme = 'light'; }
+</script>
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -47,14 +50,13 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
     --shadow-hover: 0 2px 4px rgba(17,24,39,.06), 0 18px 40px -16px rgba(79,70,229,.45);
     --blob1: rgba(99,102,241,.2); --blob2: rgba(236,72,153,.14); --blob3: rgba(14,165,233,.14);
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
+  :root[data-theme="dark"] {
       --bg: #0b0f19; --bg2: #0f1424; --card: rgba(23,28,45,.75); --card-solid: #171c2d; --text: #e5e7eb; --muted: #9ca3af;
       --line: rgba(255,255,255,.08); --accent: #818cf8; --accent2: #a78bfa; --ring: rgba(129,140,248,.3);
       --ok: #34d399; --warn: #fbbf24; --bad: #f87171; --warn-bg: rgba(251,191,36,.12); --bad-bg: rgba(248,113,113,.12); --ok-bg: rgba(52,211,153,.12);
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6); --shadow-hover: 0 18px 40px -16px rgba(129,140,248,.45);
       --blob1: rgba(99,102,241,.22); --blob2: rgba(236,72,153,.1); --blob3: rgba(14,165,233,.1);
-    }
+      color-scheme: dark;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; min-height: 100%; overflow-x: hidden; color: var(--text); background: var(--bg);
@@ -154,7 +156,7 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
   @keyframes sh { to { background-position: -200% 0; } }
 
   /* Chi tiết (bottom sheet) */
-  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: none; }
+  .sheet-bg { position: fixed; inset: 0; background: rgba(8,10,20,.62); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); z-index: 50; display: none; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; background: var(--card-solid); border-radius: 22px 22px 0 0; max-width: 560px; margin: 0 auto;
            max-height: 88vh; overflow: auto; padding: 10px 18px calc(18px + env(safe-area-inset-bottom)); transform: translateY(110%); transition: transform .22s; }
   .sheet.open { transform: none; } .sheet-bg.open { display: block; }
@@ -177,7 +179,7 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
     .sheet.open { transform: none; }
     .sheet .grab { display: none; }
     .sheet .fbar { bottom: -22px; margin: 18px -22px -22px; padding: 14px 22px; border-radius: 0 0 0 22px; }
-    .sheet-bg { background: rgba(0,0,0,.25); }
+    .sheet-bg { background: rgba(8,10,20,.55); }
   }
   .grab { width: 40px; height: 5px; border-radius: 99px; background: var(--line); margin: 0 auto 14px; }
   .sheet .cc { margin-bottom: 14px; }
@@ -256,6 +258,11 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
   .swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
   .sw { width: 30px; height: 30px; border-radius: 9px; border: 2px solid transparent; cursor: pointer; }
   .sw.on { border-color: var(--text); }
+  .sw.custom { display: grid; place-items: center; color: #fff; font-size: 14px; background: conic-gradient(#ef4444, #f59e0b, #22c55e, #06b6d4, #6366f1, #d946ef, #ef4444); }
+  .cpick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); font-size: 13px; }
+  .cpick label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .cpick input[type=color] { width: 44px; height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--card-solid); cursor: pointer; }
+  .cpick .bar { flex: 1; min-width: 80px; height: 22px; border-radius: 99px; border: 1px solid var(--line); }
   .sbtn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--card-solid); color: var(--text); cursor: pointer; }
   .fbar { position: sticky; bottom: calc(-18px - env(safe-area-inset-bottom)); margin: 16px -18px calc(-18px - env(safe-area-inset-bottom));
           padding: 12px 18px calc(12px + env(safe-area-inset-bottom)); background: var(--card-solid); border-top: 1px solid var(--line); display: flex; gap: 10px; }
@@ -283,7 +290,7 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
   .rv .rr b.mask { letter-spacing: .12em; color: var(--muted); }
   .rv .tm { font-size: 12px; color: var(--muted); padding: 8px 12px; background: var(--bg); display: flex; justify-content: space-between; align-items: center; }
   /* Hộp thoại */
-  .modal { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,.5); }
+  .modal { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px; background: rgba(8,10,20,.6); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
   .modal[hidden] { display: none; }
   .mbox { width: 100%; max-width: 380px; background: var(--card-solid); border-radius: 22px; padding: 22px 18px 16px; box-shadow: var(--shadow-hover); }
   .mbox h3 { margin: 0 0 6px; font-size: 18px; }
@@ -304,6 +311,7 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
     <div class="acts">
       <a class="ibtn" id="sheetLink" href="#" target="_blank" title="Mở sheet để sửa"><i class="fa-solid fa-table"></i></a>
       <button class="ibtn" id="addBtn" title="Thêm thẻ"><i class="fa-solid fa-plus"></i></button>
+      <button class="ibtn" id="themeBtn" title="Giao diện sáng / tối"><i class="fa-solid fa-moon"></i></button>
       <button class="ibtn" id="vaultBtn" title="Mật khẩu chủ"><i class="fa-solid fa-key"></i></button>
       <button class="ibtn" id="reload" title="Tải lại"><i class="fa-solid fa-rotate-right"></i></button>
       <button class="ibtn" id="logout" title="Khóa"><i class="fa-solid fa-lock"></i></button>
@@ -824,6 +832,15 @@ async function offerPasskey() {
   pkRegister();
 }
 
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t; store('theme', t);
+  $('themeBtn').innerHTML = `<i class="fa-solid ${t === 'dark' ? 'fa-sun' : 'fa-moon'}"></i>`;
+  $('themeBtn').title = t === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối';
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = t === 'dark' ? '#0b0f19' : '#4f46e5';
+}
+applyTheme(document.documentElement.dataset.theme);
+$('themeBtn').onclick = () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
 $('vaultBtn').onclick = async () => {
   const remembered = !!(await deviceKey().catch(() => null)) || !!(D.vault && await DEV.get());
   $('modal').innerHTML = `<div class="mbox"><h3><i class="fa-solid fa-key"></i> Mật khẩu chủ</h3>
@@ -871,7 +888,7 @@ function drawMasked(c) {
     <div class="rr"><span>Tên trên thẻ</span><b class="mask">••••••••</b></div>
     <div class="rr"><span>Hết hạn</span><b>${esc(c.exp || '—')}</b></div>
     <div class="rr"><span>CVV</span><b class="mask">•••</b></div>
-    <div class="tm"><span><i class="fa-solid fa-shield-halved"></i> Bấm 👁 và xác nhận ${PK_OK && store('pkDev') ? 'bằng passkey' : 'bằng PIN'} để xem</span></div></div>`;
+    <div class="tm"><span><i class="fa-solid fa-shield-halved"></i> Bấm <i class="fa-regular fa-eye"></i> và xác nhận ${PK_OK && store('pkDev') ? 'bằng passkey' : 'bằng PIN'} để xem</span></div></div>`;
   $('dEye').onclick = () => reveal(c);
 }
 
@@ -1056,7 +1073,7 @@ function onSec(k, init) {
     const h = $('h_pan');
     if (!d) { h.textContent = ''; h.className = 'hint'; return; }
     const ok = luhn(d), net = netOf(d);
-    h.textContent = d.length < 13 ? d.length + ' số' : ok ? '✓ Số thẻ hợp lệ' + (net ? ' · ' + net : '') : '✗ Số thẻ không hợp lệ, kiểm tra lại';
+    h.innerHTML = d.length < 13 ? d.length + ' số' : ok ? '<i class="fa-solid fa-circle-check"></i> Số thẻ hợp lệ' + (net ? ' · ' + net : '') : '<i class="fa-solid fa-circle-xmark"></i> Số thẻ không hợp lệ, kiểm tra lại';
     h.className = 'hint ' + (d.length < 13 ? '' : ok ? 'ok' : 'bad');
     if (ok && !init) {
       $('f_last4').value = d.slice(-4);
@@ -1114,7 +1131,7 @@ function drawPhotoOpt() {
     const plain = r.value === 'plain';
     if (plain) {
       const f = FORM.ocrFound;
-      const msg = f && f.length ? '⚠ Bộ đọc chữ THẤY trên ảnh: ' + f.join(', ') + '.\nẢnh này có thông tin nhạy cảm, NÊN chọn "Mã hóa ảnh".\n\nVẫn lưu KHÔNG mã hóa?'
+      const msg = f && f.length ? 'CẢNH BÁO: bộ đọc chữ THẤY trên ảnh: ' + f.join(', ') + '.\nẢnh này có thông tin nhạy cảm, NÊN chọn "Mã hóa ảnh".\n\nVẫn lưu KHÔNG mã hóa?'
         : (f ? 'Bộ đọc chữ không thấy số thẻ / tên / hạn dùng trên ảnh (có thể bỏ sót số dập nổi).\n' : 'Ảnh chưa được đọc chữ để kiểm tra.\n') +
           'Hãy tự nhìn lại ảnh: chỉ chọn khi mặt thẻ KHÔNG có số thẻ, tên, CVV.\n\nLưu ảnh KHÔNG mã hóa?';
       if (!confirm(msg)) { drawPhotoOpt(); return; }
@@ -1127,10 +1144,27 @@ function preview() {
   $('fPreview').innerHTML = ccHtml({ ...FORM.v, ...collect(), face: FORM.face, color: FORM.color, _photo: FORM.usePhoto && FORM.photoRaw ? FORM.photoRaw : null });
 }
 function drawSwatches() {
+  const isCustom = !!FORM.color && !SWATCHES.includes(FORM.color);
+  const cur = (FORM.color || colorsOf({ ...FORM.v, ...collect() }).join(',')).split(',');
+  const hex = v => /^#[0-9a-f]{6}$/i.test(v || '') ? v : '#4f46e5';
+  const c1 = hex(cur[0]), c2 = hex(cur[1] || cur[0]);
   $('swatches').innerHTML = `<span style="font-size:12px;color:var(--muted);margin-right:2px">Màu:</span>` +
     SWATCHES.map(s => { const [a, b] = s.split(','); return `<button class="sw ${FORM.color === s && !FORM.face ? 'on' : ''}" data-s="${s}" style="background:linear-gradient(135deg,${a},${b})"></button>`; }).join('') +
-    `<button class="sbtn" data-s="">Tự động</button>` + (FORM.face ? `<button class="sbtn" id="noFace"><i class="fa-solid fa-xmark"></i> Bỏ ảnh</button>` : '');
-  $('swatches').querySelectorAll('[data-s]').forEach(b => b.onclick = () => { FORM.color = b.dataset.s; FORM.face = ''; FORM.dirty = true; drawSwatches(); preview(); });
+    `<button class="sw custom ${isCustom ? 'on' : ''}" id="swCustom" title="Tự chọn màu"><i class="fa-solid fa-palette"></i></button>` +
+    `<button class="sbtn" data-s="">Tự động</button>` + (FORM.face ? `<button class="sbtn" id="noFace"><i class="fa-solid fa-xmark"></i> Bỏ ảnh</button>` : '') +
+    (FORM.showPicker || isCustom ? `<div class="cpick" style="flex-basis:100%">
+      <label>Màu đầu <input type="color" id="cp1" value="${c1}"></label>
+      <label>Màu cuối <input type="color" id="cp2" value="${c2}"></label>
+      <div class="bar" id="cpBar" style="background:linear-gradient(90deg,${c1},${c2})"></div>
+      <button class="sbtn" id="cpSame" title="Thẻ một màu">1 màu</button></div>` : '');
+  $('swatches').querySelectorAll('[data-s]').forEach(b => b.onclick = () => { FORM.color = b.dataset.s; FORM.face = ''; FORM.showPicker = false; FORM.dirty = true; drawSwatches(); preview(); });
+  $('swCustom').onclick = () => { FORM.showPicker = true; FORM.face = ''; if (!isCustom) FORM.color = c1 + ',' + c2; FORM.dirty = true; drawSwatches(); preview(); };
+  if ($('cp1')) {
+    const upd = () => { FORM.color = $('cp1').value + ',' + $('cp2').value; FORM.face = ''; FORM.dirty = true;
+      $('cpBar').style.background = `linear-gradient(90deg,${$('cp1').value},${$('cp2').value})`; preview(); };
+    $('cp1').oninput = upd; $('cp2').oninput = upd;
+    $('cpSame').onclick = () => { $('cp2').value = $('cp1').value; upd(); };
+  }
   if ($('noFace')) $('noFace').onclick = () => { FORM.face = ''; FORM.dirty = true; drawSwatches(); preview(); };
 }
 
@@ -1390,7 +1424,7 @@ load();
   .instbtn[hidden] { display: none; }            /* class đặt display:flex sẽ đè thuộc tính hidden nếu thiếu dòng này */
   .instbtn .x { margin-left: 6px; opacity: .85; font-weight: 400; padding: 2px 6px; border-radius: 99px; background: rgba(255,255,255,.18); }
 </style>
-<button class="instbtn" id="instBtn" hidden><i class="fa-solid fa-download"></i><span>Cài ứng dụng</span><span class="x" id="instX">✕</span></button>
+<button class="instbtn" id="instBtn" hidden><i class="fa-solid fa-download"></i><span>Cài ứng dụng</span><span class="x" id="instX" title="Ẩn"><i class="fa-solid fa-xmark"></i></span></button>
 <script>
 (function () {
   if ('serviceWorker' in navigator) addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
@@ -1403,7 +1437,7 @@ load();
   addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; btn.hidden = false; });
   if (ios) btn.hidden = false;
   btn.onclick = function (e) {
-    if (e.target.id === 'instX') { btn.hidden = true; try { localStorage.setItem('instDismiss', '1'); } catch (x) {} return; }
+    if (e.target.closest('#instX')) { btn.hidden = true; try { localStorage.setItem('instDismiss', '1'); } catch (x) {} return; }
     if (deferred) { deferred.prompt(); deferred.userChoice.then(function (c) { if (c.outcome === 'accepted') btn.hidden = true; deferred = null; }); return; }
     alert('Cài "Thẻ của tôi" lên iPhone/iPad:\n\n1. Bấm nút Chia sẻ (ô vuông có mũi tên lên) ở thanh dưới Safari\n2. Chọn "Thêm vào MH chính"\n3. Bấm "Thêm"');
   };
