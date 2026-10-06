@@ -196,6 +196,15 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
   .go { width: 100%; height: 50px; border: 0; border-radius: 14px; cursor: pointer; font: inherit; font-size: 16px; font-weight: 700; color: #fff;
         background: linear-gradient(135deg, var(--accent), var(--accent2)); display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
   .go:disabled { opacity: .7; }
+  .gbox { position: relative; }
+  .gload { position: absolute; inset: 0; z-index: 3; border-radius: 26px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+           gap: 14px; background: var(--card-solid); font-weight: 600; color: var(--text); }
+  .gload[hidden], .busy[hidden] { display: none; }
+  .gload i { font-size: 34px; color: var(--accent); }
+  .busy { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(0,0,0,.35); }
+  .busy > div { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 16px; background: var(--card-solid); font-weight: 600; box-shadow: var(--shadow-hover); }
+  .busy i { font-size: 22px; color: var(--accent); }
+  .gate.pkmode .gbox { cursor: pointer; }
   .pkgo { width: 100%; height: 50px; margin-top: 10px; border-radius: 14px; cursor: pointer; font: inherit; font-size: 16px; font-weight: 700;
           border: 1.5px solid var(--accent); background: transparent; color: var(--accent); display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
   .pkgo i { font-size: 20px; }
@@ -297,12 +306,14 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
     <button class="pkgo" type="button" id="pkGo" hidden><i class="fa-solid fa-fingerprint"></i><span>Mở bằng passkey</span></button>
     <button class="pinlink" type="button" id="usePin" hidden>Dùng mã PIN</button>
     <div class="err" id="err"></div>
+    <div class="gload" id="gLoad" hidden><i class="fa-solid fa-circle-notch fa-spin"></i><span id="gLoadTxt">Đang xác minh…</span></div>
   </div>
 </form>
 
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet" id="sheet"></div>
 <div class="toast" id="toast"></div>
+<div class="busy" id="busy" hidden><div><i class="fa-solid fa-circle-notch fa-spin"></i><span id="busyTxt"></span></div></div>
 <div class="modal" id="modal" hidden></div>
 <input type="file" id="camIn" accept="image/*" capture="environment" hidden>
 <input type="file" id="galIn" accept="image/*" hidden>
@@ -622,11 +633,13 @@ async function unlockVault() {
     fields: [{ id: 'p', type: 'password', ph: 'Mật khẩu chủ' }, { id: 'rem', type: 'checkbox', ph: 'Ghi nhớ trên thiết bị này (lần sau chỉ cần PIN)', checked: true }] });
   if (!r) return null;
   try {
+    busy('Đang mở khóa…');
     const k = await deriveKey(r.p, D.vault.salt, D.vault.iter);
+    busy(false);
     if ((await unseal(k, D.vault.verifier)).check !== 'ok') throw 0;
     if (r.rem && await DEV.set({ key: k, salt: D.vault.salt, at: Date.now() })) toast('Đã ghi nhớ trên thiết bị này');
     return VKEY = k;
-  } catch (e) { toast('Sai mật khẩu chủ'); return unlockVault(); }
+  } catch (e) { busy(false); toast('Sai mật khẩu chủ'); return unlockVault(); }
 }
 const pwRule = v => v.p.length < 8 ? 'Mật khẩu chủ cần ít nhất 8 ký tự' : v.p !== v.p2 ? 'Hai lần nhập không khớp' : '';
 async function createVault() {
@@ -662,7 +675,9 @@ async function changeVault() {
 // ---------- Passkey (WebAuthn) - chỉ ở bản ngoài Google
 const IS_EXT = !!window.API_URL;
 const PK_OK = IS_EXT && !!window.PublicKeyCredential;
-let PK_N = 0, PK_AUTO = true;
+let PK_N = 0, PK_AUTO = true, PK_BUSY = false;
+function gateBusy(msg) { $('gLoad').hidden = !msg; if (msg) $('gLoadTxt').textContent = msg; }
+function busy(msg) { $('busy').hidden = !msg; if (msg) $('busyTxt').textContent = msg; }
 const b64u = buf => b64(buf).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64u = s => unb64(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
 const devName = () => { const u = navigator.userAgent;
@@ -679,35 +694,51 @@ function gateInfo() {
     $('gate').classList.toggle('pkmode', !!pkFirst);
     $('usePin').hidden = !pkFirst;
     $('gate').querySelector('.gs').textContent = pkFirst ? 'Mở bằng passkey (vân tay / Face ID)' : 'Nhập mã PIN để xem thông tin thẻ';
-    if (pkFirst && PK_AUTO) { PK_AUTO = false; pkLogin(true); }
+    if (pkFirst && PK_AUTO && !document.hidden) { PK_AUTO = false; pkLogin(true); }
   };
   if (IS_EXT) google.script.run.withSuccessHandler(r => apply(r.pinLen, r.passkeys)).authInfo();
   else if (!PIN_LEN) google.script.run.withSuccessHandler(n => apply(n, 0)).pinLength();
   else apply(PIN_LEN, 0);
 }
 $('usePin').onclick = () => { $('gate').classList.remove('pkmode'); $('usePin').hidden = true; $('gate').querySelector('.gs').textContent = 'Nhập mã PIN để xem thông tin thẻ'; setTimeout(() => $('pin').focus(), 50); };
-$('pkGo').onclick = () => pkLogin(false);
+$('pkGo').onclick = e => { e.stopPropagation(); pkLogin(false); };
+$('gbox').addEventListener('click', e => {
+  if (!$('gate').classList.contains('pkmode') || PK_BUSY || e.target.closest('#usePin')) return;
+  pkLogin(false);
+});
 
 function onUnlocked(r, viaPin) {
   TOKEN = r.token; IDLE_MS = r.idleMin * 60000; lastAct = lastTouch = Date.now(); saveSess();
-  load(ok => { if (ok && viaPin && PK_OK && !store('pkDev') && !store('pkAsked')) { store('pkAsked', 1); setTimeout(offerPasskey, 600); } });
+  gateBusy('Đang tải dữ liệu…');
+  load(ok => { gateBusy(false); if (ok && viaPin && PK_OK && !store('pkDev') && !store('pkAsked')) { store('pkAsked', 1); setTimeout(offerPasskey, 600); } });
 }
 
 async function pkLogin(auto) {
+  if (PK_BUSY) return;
+  PK_BUSY = true;
   const btn = $('pkGo'); btn.disabled = true; $('err').textContent = '';
+  const t0 = Date.now();
   try {
+    gateBusy('Đang mở passkey…');
     const b = await call('pkLoginBegin');
+    gateBusy(false);
     const a = await navigator.credentials.get({ publicKey: { challenge: unb64u(b.challenge), rpId: b.rpId, timeout: 60000, userVerification: 'required',
       allowCredentials: b.allow.map(id => ({ type: 'public-key', id: unb64u(id) })) } });
+    gateBusy('Đang xác minh…');
     const r = await call('pkLoginFinish', { id: a.id, clientDataJSON: b64u(a.response.clientDataJSON), authenticatorData: b64u(a.response.authenticatorData), signature: b64u(a.response.signature) });
     store('pkDev', 1);
     onUnlocked(r, false);
   } catch (e) {
+    gateBusy(false);
     const code = codeOf(e);
     if (code === 'LOCKED') $('err').textContent = ERR.LOCKED;
-    else if (e.name === 'NotAllowedError') { if (!auto) $('err').textContent = 'Đã hủy hoặc hết thời gian. Bấm lại để thử.'; }
+    else if (e.name === 'NotAllowedError') {
+      // tự bật bị trình duyệt chặn ngay (cần 1 lần chạm) hoặc người dùng bấm hủy
+      $('err').textContent = auto && Date.now() - t0 < 2500 ? '' : 'Đã hủy hoặc hết thời gian.';
+      $('gate').querySelector('.gs').innerHTML = '<i class="fa-solid fa-hand-pointer"></i> Chạm để mở bằng Face ID / vân tay';
+    }
     else $('err').textContent = String(e.message || e);
-  } finally { btn.disabled = false; }
+  } finally { btn.disabled = false; PK_BUSY = false; }
 }
 
 /** Lấy khóa công khai: ưu tiên getPublicKey() (SPKI); trình duyệt cũ thì đọc COSE trong attestationObject */
@@ -820,13 +851,17 @@ async function confirmUser() {
   if (Date.now() - CONFIRMED_AT < 120000) return true;
   if (PK_OK && store('pkDev') && PK_N > 0) {
     try {
+      busy('Đang mở passkey…');
       const b = await call('pkLoginBegin');
+      busy(false);
       const a = await navigator.credentials.get({ publicKey: { challenge: unb64u(b.challenge), rpId: b.rpId, timeout: 60000, userVerification: 'required',
         allowCredentials: b.allow.map(id => ({ type: 'public-key', id: unb64u(id) })) } });
+      busy('Đang xác minh…');
       const r = await call('pkLoginFinish', { id: a.id, clientDataJSON: b64u(a.response.clientDataJSON), authenticatorData: b64u(a.response.authenticatorData), signature: b64u(a.response.signature) });
-      TOKEN = r.token; saveSess();
+      TOKEN = r.token; saveSess(); busy(false);
       CONFIRMED_AT = Date.now(); return true;
     } catch (e) {
+      busy(false);
       if (codeOf(e) === 'LOCKED') { toast(ERR.LOCKED); return false; }
       if (e.name !== 'NotAllowedError') toast('Passkey lỗi, dùng PIN: ' + (e.message || e));
     }
@@ -835,8 +870,9 @@ async function confirmUser() {
     const r = await ask({ title: 'Xác nhận để xem', msg: 'Nhập mã PIN để xem thông tin nhạy cảm của thẻ.', ok: 'Xác nhận',
       fields: [{ id: 'p', type: 'password', ph: 'Mã PIN' }] });
     if (!r) return false;
-    try { await call('confirmPin', TOKEN, r.p.replace(/\D/g, '')); CONFIRMED_AT = Date.now(); return true; }
+    try { busy('Đang kiểm tra mã PIN…'); await call('confirmPin', TOKEN, r.p.replace(/\D/g, '')); busy(false); CONFIRMED_AT = Date.now(); return true; }
     catch (e) {
+      busy(false);
       const code = codeOf(e);
       if (code === 'EXPIRED') { lockNow(ERR.EXPIRED); return false; }
       if (code === 'LOCKED') { toast(ERR.LOCKED); return false; }
@@ -848,7 +884,9 @@ async function confirmUser() {
 async function reveal(c) {
   if (!await confirmUser()) return;
   const k = await unlockVault(); if (!k) return;
-  let s; try { s = await unseal(k, c.secure); } catch (e) { toast('Không giải mã được dữ liệu của thẻ này'); return; }
+  busy('Đang giải mã…');
+  let s; try { s = await unseal(k, c.secure); } catch (e) { busy(false); toast('Không giải mã được dữ liệu của thẻ này'); return; }
+  busy(false);
   const rows = [['Số thẻ', groupPan(s.pan), s.pan], ['Tên trên thẻ', s.name, s.name], ['Hết hạn', c.exp, c.exp], ['CVV', s.cvv, s.cvv]].filter(r => r[2]);
   let left = 60;
   const draw = () => {
@@ -1245,6 +1283,7 @@ function drawDots() {
   $('dots').innerHTML = PIN_LEN ? Array.from({ length: PIN_LEN }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('') : '';
 }
 function showGate(msg, shake) {
+  gateBusy(false); busy(false);
   gateInfo();
   $('pin').value = ''; drawDots();
   $('app').hidden = true; $('gate').hidden = false; $('err').textContent = msg || '';
@@ -1253,6 +1292,7 @@ function showGate(msg, shake) {
   setTimeout(() => $('pin').focus(), 50);
 }
 function lockNow(msg) {
+  PK_AUTO = true;
   if (TOKEN) google.script.run.lockToken(TOKEN);
   TOKEN = ''; saveSess(); VKEY = null; PHOTOS = {}; CONFIRMED_AT = 0; clearTimeout(RV_T); D = null; $('modal').hidden = true; $('main').innerHTML = ''; closeDetail();
   showGate(msg);
@@ -1276,9 +1316,10 @@ $('gate').onsubmit = e => {
   e.preventDefault();
   const pin = $('pin').value.replace(/\D/g, ''); if (!pin) return;
   $('go').disabled = true; $('go').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Đang kiểm tra…</span>';
+  gateBusy('Đang kiểm tra mã PIN…');
   google.script.run
     .withSuccessHandler(r => onUnlocked(r, true))
-    .withFailureHandler(err => { const code = codeOf(err); showGate(ERR[code] || String(err.message || err), code === 'BAD_PIN'); })
+    .withFailureHandler(err => { gateBusy(false); const code = codeOf(err); showGate(ERR[code] || String(err.message || err), code === 'BAD_PIN'); })
     .unlock(pin);
 };
 $('pin').oninput = () => {
@@ -1305,6 +1346,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); lastAct = hiddenAt; saveSess(); return; }
   if (TOKEN && hiddenAt && Date.now() - hiddenAt > AWAY_MS) lockNow('Đã tự khóa vì rời trang quá ' + AWAY_MS / 60000 + ' phút.');
   else { hiddenAt = 0; activity(); }
+  // đang ở màn khóa (chế độ passkey) mà quay lại app -> tự bật Face ID / vân tay
+  if (!$('gate').hidden && $('gate').classList.contains('pkmode') && !PK_BUSY && $('gLoad').hidden) pkLogin(true);
 });
 
 if (TOKEN) { $('app').hidden = false; $('main').innerHTML = '<div class="grid" style="margin-top:24px">' + '<div class="skel"></div>'.repeat(3) + '</div>'; }
