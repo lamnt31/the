@@ -59,7 +59,8 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
       color-scheme: dark;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; min-height: 100%; overflow-x: hidden; color: var(--text); background: var(--bg);
+  html { overflow-x: hidden; }   /* chỉ đặt ở html: đặt ở body sẽ làm hỏng position: sticky */
+  html, body { margin: 0; min-height: 100%; color: var(--text); background: var(--bg);
     font: 15px/1.5 "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   body::before { content: ""; position: fixed; inset: -20vmax; z-index: -1; pointer-events: none;
     background: radial-gradient(40vmax 40vmax at 15% 10%, var(--blob1), transparent 60%), radial-gradient(35vmax 35vmax at 90% 0%, var(--blob2), transparent 60%),
@@ -113,6 +114,9 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
           padding: 7px 13px; border-radius: 99px; cursor: pointer; }
   .chip.on { background: var(--text); color: var(--bg); border-color: var(--text); }
   .search { position: relative; flex: 1; min-width: 180px; }
+  .listbar { position: sticky; top: 0; z-index: 6; margin: 0 -16px; padding: 10px 16px 6px; background: var(--bg);
+             transition: box-shadow .2s; }
+  .listbar.stuck { box-shadow: 0 8px 16px -14px rgba(0,0,0,.45); }
   .banktabs { display: flex; gap: 6px; overflow-x: auto; margin-top: 10px; padding-bottom: 4px; scrollbar-width: none; }
   .banktabs::-webkit-scrollbar { display: none; }
   .btab { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 10px; cursor: pointer;
@@ -121,6 +125,11 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
   .btab .n { color: var(--muted); font-weight: 500; }
   .btab.on { border-color: var(--accent); background: var(--ring); }
   .btab.on .n { color: var(--accent); }
+  @media (min-width: 720px) {
+    .tl { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; overflow: visible; }
+    .tl .ev { flex: none; min-width: 0; }
+    .banktabs { flex-wrap: wrap; overflow: visible; }
+  }
   .search i { position: absolute; z-index: 1; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; }
   .search input { width: 100%; font: inherit; font-size: 14px; padding: 8px 12px 8px 34px; border-radius: 99px; border: 1px solid var(--line);
                   background: var(--card); color: var(--text); outline: none; }
@@ -484,6 +493,29 @@ function cardBlock(c, i) {
     ${ccHtml(c)}${info ? `<div class="cinfo">${info}</div>` : ''}${flags ? `<div class="flags">${flags}</div>` : ''}</div>`;
 }
 
+/** Vẽ lại nhưng giữ hàng lọc đứng yên trên màn hình (danh sách ngắn lại không kéo trang lên) */
+function renderKeep() {
+  const bar = $('listBar'), main = $('main');
+  if (!bar) return render();
+  const top = bar.getBoundingClientRect().top, y = window.scrollY, wasStuck = top <= 0.5;
+  const keepH = main.offsetHeight;
+  main.style.minHeight = keepH + 'px';                 // tạm giữ chiều cao để trình duyệt không kéo trang lên
+  render();
+  const nb = $('listBar'); if (!nb) return;
+  if (wasStuck) {
+    // đang cuộn sâu (hàng lọc đang ghim) -> về đầu danh sách để thấy ngay kết quả lọc
+    const a = $('listAnchor'); window.scrollTo(0, a.getBoundingClientRect().top + window.scrollY);
+  } else window.scrollTo(0, y + nb.getBoundingClientRect().top - top);
+  // nhả chiều cao tạm khi người dùng cuộn lên trên khỏi vùng đó
+  clearTimeout(renderKeep.t);
+  renderKeep.t = setTimeout(() => {
+    const need = window.scrollY + innerHeight - (main.getBoundingClientRect().top + window.scrollY);
+    main.style.minHeight = Math.max(0, Math.ceil(need)) + 'px';
+  }, 50);
+}
+// đổ bóng nhẹ khi hàng lọc đang được ghim
+addEventListener('scroll', () => { const b = $('listBar'); if (b) b.classList.toggle('stuck', b.getBoundingClientRect().top <= 0.5); }, { passive: true });
+
 function render() {
   const cards = D.cards;
   const act = cards.filter(active);
@@ -535,12 +567,13 @@ function render() {
   if (BANK && !bankCount[BANK]) BANK = '';
   const list = byStatus.filter(c => (!BANK || (c.bank || 'Khác') === BANK) && (!q || fold([c.bank, c.nick, c.code, c.last4, c.owner, c.user, c.type, c.note].join(' ')).includes(q)));
   html += `<div class="sec"><i class="fa-solid fa-wallet"></i>Danh sách thẻ<span class="n">${list.length} thẻ</span></div>
-    <div class="filters">${tabs.map(t => `<button class="chip ${t === FILTER ? 'on' : ''}" data-f="${esc(t)}">${esc(t)} · ${counts[t]}</button>`).join('')}
+    <div id="listAnchor"></div><div class="listbar" id="listBar"><div class="filters">${tabs.map(t => `<button class="chip ${t === FILTER ? 'on' : ''}" data-f="${esc(t)}">${esc(t)} · ${counts[t]}</button>`).join('')}
       <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="q" type="search" placeholder="Tìm ngân hàng, 4 số cuối, người dùng…" value="${esc(Q)}"></div></div>`;
   if (banks.length > 1) html += `<div class="banktabs" id="bankTabs">
     <button class="btab ${BANK ? '' : 'on'}" data-bank=""><i class="fa-solid fa-building-columns"></i>Tất cả <span class="n">${byStatus.length}</span></button>
     ${banks.map(b => `<button class="btab ${BANK === b ? 'on' : ''}" data-bank="${esc(b)}"><span class="dot" style="background:linear-gradient(135deg,${colorsOf({ bank: b, note: '', code: '' }).join(',')})"></span>${esc(b)} <span class="n">${bankCount[b]}</span></button>`).join('')}
   </div>`;
+  html += `</div>`;   // đóng .listbar
   const lockedPh = list.filter(c => c.showPhoto === 'Có' && /^v1\./.test(c.photo || '') && !PHOTOS[photoKey(c)]).length;
   if (lockedPh) html += `<div class="panel" style="margin-top:12px"><div class="item" id="unlockPh"><div class="ic info"><i class="fa-solid fa-image"></i></div><div class="t"><b>${lockedPh} thẻ dùng ảnh thật đang ẩn</b><span>Ảnh thật được mã hóa · bấm để mở bằng mật khẩu chủ</span></div><span class="when ok">Mở khóa</span></div></div>`;
   html += `<div class="grid">${list.map(cardBlock).join('')}<div class="addtile" id="addTile"><div><i class="fa-solid fa-circle-plus"></i>Thêm thẻ<br><small style="font-weight:500;color:var(--muted)">nhập tay hoặc quét bằng camera</small></div></div></div>`;
@@ -551,10 +584,10 @@ function render() {
   if ($('unlockPh')) $('unlockPh').onclick = () => decryptPhotos(true);
   $('main').querySelectorAll('[data-bank]').forEach(b => b.onclick = () => {
     BANK = b.dataset.bank; try { localStorage.setItem('bankTab', JSON.stringify(BANK)); } catch (e) {}
-    const x = $('bankTabs') ? $('bankTabs').scrollLeft : 0; render(); if ($('bankTabs')) $('bankTabs').scrollLeft = x;
+    const x = $('bankTabs') ? $('bankTabs').scrollLeft : 0; renderKeep(); if ($('bankTabs')) $('bankTabs').scrollLeft = x;
   });
-  $('main').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTER = b.dataset.f; render(); });
-  const qi = $('q'); qi.oninput = () => { Q = qi.value; const pos = qi.selectionStart; render(); const n = $('q'); n.focus(); n.setSelectionRange(pos, pos); };
+  $('main').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTER = b.dataset.f; renderKeep(); });
+  const qi = $('q'); qi.oninput = () => { Q = qi.value; const pos = qi.selectionStart; renderKeep(); const n = $('q'); n.focus(); n.setSelectionRange(pos, pos); };
 }
 
 const call = (fn, ...a) => new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...a));
