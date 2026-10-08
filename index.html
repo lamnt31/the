@@ -305,6 +305,13 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
   .cp { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--card-solid); color: var(--accent); cursor: pointer; font-size: 15px; }
   .eyebtn { width: 42px; height: 38px; border-radius: 10px; border: 1px solid var(--ring); background: var(--card-solid); color: var(--accent); cursor: pointer; font-size: 17px; }
   .rv .rr b.mask { letter-spacing: .12em; color: var(--muted); }
+  .care { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); }
+  .care .ci { flex: 0 0 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--ring); color: var(--accent); font-size: 16px; }
+  .care .ct { flex: 1; min-width: 0; }
+  .care .ct small { display: block; font-size: 11.5px; color: var(--muted); }
+  .care .ct b { display: block; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .care .ct span { display: block; font-size: 13px; color: var(--muted); }
+  .care .abtn.sm { flex: 0 0 auto; height: 38px; gap: 6px; }
   .rv .tm { font-size: 12px; color: var(--muted); padding: 8px 12px; background: var(--bg); display: flex; justify-content: space-between; align-items: center; }
   /* Hộp thoại */
   .modal { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px; background: rgba(8,10,20,.6); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
@@ -609,6 +616,7 @@ function openDetail(row) {
   const p = pendingOf(c), a = analyze(c);
   const R = (ic, k, v) => v === '' || v == null ? '' : `<div class="r"><i class="fa-solid ${ic}"></i><span>${k}</span><b>${v}</b></div>`;
   const tel = (c.hotline || '').replace(/[^\d+]/g, '');
+  const carePh = (c.carePhone || '').replace(/[^\d+]/g, ''), zaloPh = carePh.replace(/^\+84/, '0');
   $('sheet').innerHTML = `<div class="grab"></div>${ccHtml(c)}
     ${a.alerts.length ? `<div class="flags" style="padding:0 0 12px">${a.alerts.map(x => `<span class="flag ${x.lv === 'info' ? 'warn' : x.lv}"><i class="fa-solid ${x.ic}"></i>${esc(x.t)}</span>`).join('')}</div>` : ''}
     <div class="sacts" style="margin:0 0 12px">
@@ -635,6 +643,8 @@ function openDetail(row) {
       ${R('fa-circle-dot', 'Trạng thái', esc(c.status))}
       ${R('fa-note-sticky', 'Ghi chú', esc(c.note))}
     </div>
+    ${c.care || c.carePhone ? `<div class="care"><div class="ci"><i class="fa-solid fa-user-tie"></i></div><div class="ct"><small>Người chăm sóc</small><b>${esc(c.care || '—')}</b><span class="num">${esc(c.carePhone || '')}</span></div>
+      ${carePh ? `<a class="abtn sm pri" href="tel:${esc(carePh)}" title="Gọi"><i class="fa-solid fa-phone"></i>Gọi</a><a class="abtn sm" href="https://zalo.me/${esc(zaloPh)}" target="_blank" rel="noopener" title="Nhắn Zalo"><i class="fa-solid fa-comment-dots"></i>Zalo</a>` : ''}</div>` : ''}
     <div class="sacts">
       <a class="abtn pri ${tel ? '' : 'dis'}" href="tel:${esc(tel)}"><i class="fa-solid fa-phone"></i>${tel ? 'Gọi ' + esc(c.hotline) : 'Chưa có hotline'}</a>
       <a class="abtn" href="${esc(D.sheetUrl)}" target="_blank"><i class="fa-solid fa-table"></i>Mở sheet</a>
@@ -1027,7 +1037,7 @@ function netOf(p) {
 
 // ---------- Form thêm / sửa thẻ
 let FORM = null;
-const F_TEXT = ['bank', 'nick', 'code', 'owner', 'user', 'type', 'exp', 'last4', 'status', 'feeCond', 'hotline', 'perks', 'note'];
+const F_TEXT = ['bank', 'nick', 'code', 'owner', 'user', 'type', 'exp', 'last4', 'status', 'feeCond', 'hotline', 'care', 'carePhone', 'perks', 'note'];
 const F_NUM = ['limit', 'stmt', 'due', 'fee', 'feeMonth'];
 
 function openForm(c, focusSecure) {
@@ -1079,6 +1089,8 @@ function openForm(c, focusSecure) {
     <div class="fsec"><i class="fa-solid fa-circle-info"></i>Khác</div>
     <div class="fgrid">
       ${fld('hotline', 'Hotline', 'inputmode="tel"', 'full')}
+      ${fld('care', 'Người chăm sóc', 'placeholder="Tên nhân viên ngân hàng"')}
+      ${fld('carePhone', 'SĐT chăm sóc', 'inputmode="tel" placeholder="09xx xxx xxx"')}
       ${fld('perks', 'Ưu đãi', '', 'full')}
       ${fld('note', 'Ghi chú', '', 'full')}
     </div>
@@ -1156,6 +1168,7 @@ function onField(k) {
     $('h_exp').className = 'hint bad';
   }
   if (k === 'last4') el.value = el.value.replace(/\D/g, '').slice(0, 4);
+  if (k === 'carePhone') el.value = el.value.replace(/[^\d+ .\-]/g, '').slice(0, 20);
   if (['limit', 'fee'].includes(k)) { const d = el.value.replace(/\D/g, ''); el.value = d ? fmt(+d) : ''; }
   if (['stmt', 'due', 'feeMonth'].includes(k)) el.value = el.value.replace(/\D/g, '').slice(0, 2);
   if (k === 'bank') {
