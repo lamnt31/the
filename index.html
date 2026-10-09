@@ -673,8 +673,69 @@ function unlockScroll() {
   if (!document.body.classList.contains('locked')) return;
   document.body.classList.remove('locked'); document.body.style.top = ''; window.scrollTo(0, SCROLL_Y);
 }
-function openSheet() { $('sheet').scrollTop = 0; $('sheet').classList.add('open'); $('sheetBg').classList.add('open'); lockScroll(); }
-function closeDetail() { $('sheet').classList.remove('open'); $('sheetBg').classList.remove('open'); clearTimeout(RV_T); FORM = null; unlockScroll(); }
+function openSheet() { sheetReset(); $('sheet').scrollTop = 0; $('sheet').classList.add('open'); $('sheetBg').classList.add('open'); lockScroll(); }
+function closeDetail() { sheetReset(true); $('sheet').classList.remove('open'); $('sheetBg').classList.remove('open'); clearTimeout(RV_T); FORM = null; unlockScroll(); }
+// ---------- Vuốt popup (điện thoại): lần 1 thu thấp, lần 2 đóng; không vuốt tiếp -> tự bung lại
+const SW = { y0: 0, dy: 0, base: 0, drag: false, half: false, t: 0, top0: true };
+const isSidePanel = () => matchMedia('(min-width: 900px)').matches;
+const halfOffset = () => Math.round($('sheet').offsetHeight * 0.48);
+function sheetMove(px, animate) {
+  const sh = $('sheet'), bg = $('sheetBg');
+  sh.style.transition = animate ? 'transform .25s cubic-bezier(.2,.8,.2,1)' : 'none';
+  sh.style.transform = px > 0 ? `translateY(${px}px)` : '';
+  bg.style.transition = animate ? 'opacity .25s' : 'none';
+  bg.style.opacity = String(Math.max(0.15, 1 - px / Math.max(sh.offsetHeight, 1) * 0.9));
+}
+function sheetReset(keep) { clearTimeout(SW.t); SW.half = false; SW.drag = false; const sh = $('sheet'), bg = $('sheetBg'); if (!keep) sh.style.transition = ''; sh.style.transform = ''; bg.style.opacity = ''; bg.style.transition = ''; }
+function sheetFull() { clearTimeout(SW.t); SW.half = false; sheetMove(0, true); }
+function sheetHalf() { SW.half = true; sheetMove(halfOffset(), true); clearTimeout(SW.t); SW.t = setTimeout(sheetFull, 1500); }   // không vuốt tiếp -> bung lại
+function sheetClose() {
+  if (FORM && FORM.dirty && !confirm('Bỏ các thay đổi chưa lưu?')) { sheetFull(); return; }
+  clearTimeout(SW.t); sheetMove($('sheet').offsetHeight + 40, true);
+  setTimeout(() => { closeDetail(); sheetReset(); }, 230);
+}
+(() => {
+  const sh = $('sheet');
+  const onStart = e => {
+    if (isSidePanel() || !sh.classList.contains('open') || e.touches.length !== 1) return;
+    SW.y0 = e.touches[0].clientY; SW.dy = 0; SW.drag = false;
+    SW.base = SW.half ? halfOffset() : 0;
+    SW.top0 = sh.scrollTop <= 0 || e.currentTarget !== sh;     // lúc bắt đầu chạm nội dung đã ở đầu chưa
+  };
+  const onMove = e => {
+    if (isSidePanel() || !sh.classList.contains('open')) return;
+    const dy = e.touches[0].clientY - SW.y0;
+    if (!SW.drag) {
+      // chỉ kéo popup khi nội dung đã ở đầu (hoặc popup đang thu thấp); còn lại để cuộn nội dung bình thường
+      if ((dy > 8 && SW.top0 && sh.scrollTop <= 0) || (SW.half && Math.abs(dy) > 8)) { SW.drag = true; clearTimeout(SW.t); SW.y0 = e.touches[0].clientY; }
+      else return;
+    }
+    e.preventDefault();
+    SW.dy = e.touches[0].clientY - SW.y0;
+    sheetMove(Math.max(0, SW.base + SW.dy), false);
+  };
+  const onEnd = () => {
+    if (!SW.drag) { if (SW.half) { clearTimeout(SW.t); SW.t = setTimeout(sheetFull, 1500); } return; }
+    SW.drag = false;
+    const H = sh.offsetHeight, dy = SW.dy;
+    if (!SW.half) {
+      if (dy > H * 0.6) sheetClose();          // vuốt rất dài: đóng luôn
+      else if (dy > 70) sheetHalf();           // vuốt lần 1: thu thấp
+      else sheetFull();
+    } else {
+      if (dy > 50) sheetClose();               // vuốt lần 2: đóng
+      else if (dy < -40) sheetFull();          // vuốt lên: bung lại
+      else sheetHalf();
+    }
+  };
+  for (const el of [sh, $('sheetBg')]) {
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', () => { if (SW.drag) { SW.drag = false; SW.half ? sheetHalf() : sheetFull(); } });
+  }
+})();
+
 $('sheetBg').onclick = () => { if (FORM && FORM.dirty && !confirm('Bỏ các thay đổi chưa lưu?')) return; closeDetail(); };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('modal').hidden) closeDetail(); });
 
