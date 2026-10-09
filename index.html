@@ -323,7 +323,16 @@ window.API_URL = "https://script.google.com/macros/s/AKfycbycn7hmh0Ih2Oyu3E2rUnc
   .merr { color: var(--bad); font-size: 13px; min-height: 18px; margin-top: 6px; }
   .macts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
   @media (max-width: 480px) { .stat .v { font-size: 16px; } .stats { gap: 8px; } .stat { padding: 10px; } }
-  /* Điện thoại: hàng nút lên trên cùng, tiêu đề xuống dưới đủ chiều rộng */
+  /* Màn rất hẹp (vd Z Fold gập ~344px): nhãn 1 dòng trên, giá trị dòng dưới; màn đủ rộng giữ 2 cột */
+  @media (max-width: 380px) {
+    .rv .rr { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "lbl btn" "val btn"; column-gap: 10px; row-gap: 2px; }
+    .rv .rr span { grid-area: lbl; width: auto; }
+    .rv .rr b { grid-area: val; font-size: 17px; }
+    .rv .rr .cp, .rv .rr .eyebtn { grid-area: btn; align-self: center; }
+    .r { flex-wrap: wrap; row-gap: 2px; }
+    .r span { flex: 1; }
+    .r b { flex-basis: 100%; margin-left: 30px; text-align: left; }
+  }  /* Điện thoại: hàng nút lên trên cùng, tiêu đề xuống dưới đủ chiều rộng */
   @media (max-width: 560px) {
     .hero { flex-direction: column; gap: 14px; }
     .acts { order: -1; width: 100%; justify-content: space-between; gap: 6px; }
