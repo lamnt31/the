@@ -620,7 +620,7 @@ function openDetail(row) {
   $('sheet').innerHTML = `<div class="grab"></div>${ccHtml(c)}
     ${a.alerts.length ? `<div class="flags" style="padding:0 0 12px">${a.alerts.map(x => `<span class="flag ${x.lv === 'info' ? 'warn' : x.lv}"><i class="fa-solid ${x.ic}"></i>${esc(x.t)}</span>`).join('')}</div>` : ''}
     <div class="sacts" style="margin:0 0 12px">
-      ${c.secure ? '' : `<button class="abtn" id="dAddSec"><i class="fa-solid fa-lock"></i>Thêm số thẻ</button>`}
+      ${c.secure ? '' : `<button class="abtn" id="dAddSec"><i class="fa-solid fa-lock"></i>Thêm số thẻ / mật khẩu</button>`}
       <button class="abtn" id="dEdit" ${c.secure ? 'style="grid-column:1/-1"' : ''}><i class="fa-solid fa-pen"></i>Sửa thẻ</button>
       ${!c.face ? `<button class="abtn blue" id="dScan" style="grid-column:1/-1"><i class="fa-solid fa-camera"></i>Quét thẻ để thêm ảnh${c.secure ? '' : ' & số thẻ'}</button>` : ''}
     </div>
@@ -960,6 +960,7 @@ function drawMasked(c) {
     <div class="rr"><span>Tên trên thẻ</span><b class="mask">••••••••</b></div>
     <div class="rr"><span>Hết hạn</span><b>${esc(c.exp || '—')}</b></div>
     <div class="rr"><span>CVV</span><b class="mask">•••</b></div>
+    <div class="rr"><span>MK sao kê</span><b class="mask">••••••</b></div>
     <div class="tm"><span><i class="fa-solid fa-shield-halved"></i> Bấm <i class="fa-regular fa-eye"></i> và xác nhận ${PK_OK && store('pkDev') ? 'bằng passkey' : 'bằng PIN'} để xem</span></div></div>`;
   $('dEye').onclick = () => reveal(c);
 }
@@ -1006,7 +1007,7 @@ async function reveal(c) {
   busy('Đang giải mã…');
   let s; try { s = await unseal(k, c.secure); } catch (e) { busy(false); toast('Không giải mã được dữ liệu của thẻ này'); return; }
   busy(false);
-  const rows = [['Số thẻ', groupPan(s.pan), s.pan], ['Tên trên thẻ', s.name, s.name], ['Hết hạn', c.exp, c.exp], ['CVV', s.cvv, s.cvv]].filter(r => r[2]);
+  const rows = [['Số thẻ', groupPan(s.pan), s.pan], ['Tên trên thẻ', s.name, s.name], ['Hết hạn', c.exp, c.exp], ['CVV', s.cvv, s.cvv], ['MK sao kê', s.spw, s.spw]].filter(r => r[2]);
   let left = 60;
   const draw = () => {
     if (!$('reveal')) return;
@@ -1115,7 +1116,7 @@ function openForm(c, focusSecure) {
 function drawSec() {
   const c = FORM.c;
   if (c && c.secure && !FORM.sec && !FORM.secClear) {
-    $('secBox').innerHTML = `<div class="lockline"><i class="fa-solid fa-shield-halved" style="color:var(--ok)"></i><b>Đã lưu số thẻ •••• ${esc(c.last4 || '')}</b>
+    $('secBox').innerHTML = `<div class="lockline"><i class="fa-solid fa-shield-halved" style="color:var(--ok)"></i><b>Đã lưu thông tin bảo mật · thẻ •••• ${esc(c.last4 || '')}</b>
       <button class="sbtn" id="sUnlock"><i class="fa-solid fa-unlock"></i> Mở để sửa</button><button class="sbtn" id="sClear" title="Xóa dữ liệu bảo mật"><i class="fa-solid fa-trash"></i></button></div>`;
     $('sUnlock').onclick = async () => {
       if (!await confirmUser()) return;
@@ -1123,20 +1124,24 @@ function drawSec() {
       try { FORM.sec = await unseal(k, c.secure); drawSec(); } catch (e) { toast('Không giải mã được'); }
     };
     $('sClear').onclick = async () => {
-      if (!await ask({ title: 'Xóa dữ liệu bảo mật?', msg: 'Số thẻ, tên trên thẻ, CVV của thẻ này sẽ bị xóa khỏi sheet khi bấm Lưu.', ok: 'Xóa', danger: true })) return;
+      if (!await ask({ title: 'Xóa dữ liệu bảo mật?', msg: 'Số thẻ, tên trên thẻ, CVV, mật khẩu sao kê của thẻ này sẽ bị xóa khỏi sheet khi bấm Lưu.', ok: 'Xóa', danger: true })) return;
       FORM.secClear = true; FORM.dirty = true; drawSec();
     };
     return;
   }
-  const s = FORM.sec || { pan: '', name: '', cvv: '' };
+  const s = FORM.sec || { pan: '', name: '', cvv: '', spw: '' };
   $('secBox').innerHTML = `${FORM.secClear ? `<div class="hint bad" style="margin-bottom:8px">Dữ liệu bảo mật cũ sẽ bị xóa khi lưu.</div>` : ''}
     <div class="fgrid" style="margin-top:0">
       <div class="fld full"><label for="s_pan">Số thẻ</label><input id="s_pan" inputmode="numeric" autocomplete="off" placeholder="0000 0000 0000 0000" value="${esc(groupPan(s.pan))}"><div class="hint" id="h_pan"></div></div>
       <div class="fld"><label for="s_name">Tên in trên thẻ</label><input id="s_name" autocomplete="off" style="text-transform:uppercase" placeholder="NGUYEN VAN A" value="${esc(s.name)}"></div>
       <div class="fld"><label for="s_cvv">CVV (không bắt buộc)</label><input id="s_cvv" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="•••" value="${esc(s.cvv)}"></div>
+      <div class="fld full"><label for="s_spw">Mật khẩu sao kê (không bắt buộc)</label>
+        <div style="position:relative"><input id="s_spw" type="password" autocomplete="new-password" placeholder="Mật khẩu mở file PDF sao kê" value="${esc(s.spw || '')}" style="padding-right:44px">
+        <button type="button" class="sbtn" id="s_spwEye" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:4px 8px" title="Hiện / ẩn"><i class="fa-regular fa-eye"></i></button></div></div>
     </div>
     <div class="hint" style="margin-top:6px"><i class="fa-solid fa-lock"></i> Mã hóa bằng mật khẩu chủ trước khi gửi lên. Trong sheet chỉ thấy chuỗi ký tự vô nghĩa.</div>`;
-  ['pan', 'name', 'cvv'].forEach(k => $('s_' + k).addEventListener('input', () => { FORM.secTouched = true; FORM.dirty = true; onSec(k); }));
+  ['pan', 'name', 'cvv', 'spw'].forEach(k => $('s_' + k).addEventListener('input', () => { FORM.secTouched = true; FORM.dirty = true; onSec(k); }));
+  $('s_spwEye').onclick = () => { const i = $('s_spw'), show = i.type === 'password'; i.type = show ? 'text' : 'password'; $('s_spwEye').innerHTML = `<i class="fa-regular ${show ? 'fa-eye-slash' : 'fa-eye'}"></i>`; };
   onSec('pan', true);
 }
 
@@ -1252,9 +1257,9 @@ async function saveForm() {
 
   let secure;                                           // undefined = giữ nguyên
   if ($('s_pan')) {
-    const s = { pan: $('s_pan').value.replace(/\D/g, ''), name: $('s_name').value.trim().toUpperCase(), cvv: $('s_cvv').value.trim() };
+    const s = { pan: $('s_pan').value.replace(/\D/g, ''), name: $('s_name').value.trim().toUpperCase(), cvv: $('s_cvv').value.trim(), spw: $('s_spw').value };
     if (s.pan && !luhn(s.pan) && !confirm('Số thẻ không qua bước kiểm tra hợp lệ. Vẫn lưu?')) return;
-    if (s.pan || s.name || s.cvv) {
+    if (s.pan || s.name || s.cvv || s.spw) {
       if (FORM.secTouched || FORM.sec) {
         const k = await unlockVault(); if (!k) return;
         secure = await seal(k, s);
@@ -1388,7 +1393,7 @@ async function scanImage(file) {
     await worker.terminate();
     FORM.ocrFound = [r.pan && 'số thẻ ' + groupPan(r.pan), r.name && 'tên ' + r.name, r.exp && 'hạn dùng ' + r.exp].filter(Boolean);
     if (r.pan || r.name) {
-      if (!$('s_pan')) { FORM.sec = FORM.sec || { pan: '', name: '', cvv: '' }; drawSec(); }
+      if (!$('s_pan')) { FORM.sec = FORM.sec || { pan: '', name: '', cvv: '', spw: '' }; drawSec(); }
       if (r.pan) { $('s_pan').value = groupPan(r.pan); FORM.secTouched = true; onSec('pan'); }
       if (r.name && !$('s_name').value) { $('s_name').value = r.name; FORM.secTouched = true; }
     }
